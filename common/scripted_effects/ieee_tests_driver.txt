@@ -61447,3 +61447,97 @@ ieee_run_tests_division = {
     set_temp_variable = { test_id = 69150 }
     ieee_test_69150 = yes
 }
+ieee_run_tests_explogpow = {
+    set_temp_variable = { test_id = 70000 }
+    ieee_test_70000 = yes
+    set_temp_variable = { test_id = 70001 }
+    ieee_test_70001 = yes
+    set_temp_variable = { test_id = 70002 }
+    ieee_test_70002 = yes
+    set_temp_variable = { test_id = 70003 }
+    ieee_test_70003 = yes
+    set_temp_variable = { test_id = 70004 }
+    ieee_test_70004 = yes
+    set_temp_variable = { test_id = 70005 }
+    ieee_test_70005 = yes
+    set_temp_variable = { test_id = 70006 }
+    ieee_test_70006 = yes
+    set_temp_variable = { test_id = 70007 }
+    ieee_test_70007 = yes
+    set_temp_variable = { test_id = 70008 }
+    ieee_test_70008 = yes
+    set_temp_variable = { test_id = 70009 }
+    ieee_test_70009 = yes
+    set_temp_variable = { test_id = 70010 }
+    ieee_test_70010 = yes
+    set_temp_variable = { test_id = 70011 }
+    ieee_test_70011 = yes
+    set_temp_variable = { test_id = 70012 }
+    ieee_test_70012 = yes
+    set_temp_variable = { test_id = 70013 }
+    ieee_test_70013 = yes
+    set_temp_variable = { test_id = 70014 }
+    ieee_test_70014 = yes
+    set_temp_variable = { test_id = 70015 }
+    ieee_test_70015 = yes
+    set_temp_variable = { test_id = 70016 }
+    ieee_test_70016 = yes
+    set_temp_variable = { test_id = 70017 }
+    ieee_test_70017 = yes
+    set_temp_variable = { test_id = 70018 }
+    ieee_test_70018 = yes
+    set_temp_variable = { test_id = 70019 }
+    ieee_test_70019 = yes
+    set_temp_variable = { test_id = 70020 }
+    ieee_test_70020 = yes
+    set_temp_variable = { test_id = 70021 }
+    ieee_test_70021 = yes
+    set_temp_variable = { test_id = 70030 }
+    ieee_test_70030 = yes
+    set_temp_variable = { test_id = 70031 }
+    ieee_test_70031 = yes
+    set_temp_variable = { test_id = 70032 }
+    ieee_test_70032 = yes
+    set_temp_variable = { test_id = 70033 }
+    ieee_test_70033 = yes
+    set_temp_variable = { test_id = 70034 }
+    ieee_test_70034 = yes
+    set_temp_variable = { test_id = 70035 }
+    ieee_test_70035 = yes
+    set_temp_variable = { test_id = 70036 }
+    ieee_test_70036 = yes
+    set_temp_variable = { test_id = 70037 }
+    ieee_test_70037 = yes
+    set_temp_variable = { test_id = 70038 }
+    ieee_test_70038 = yes
+    set_temp_variable = { test_id = 70039 }
+    ieee_test_70039 = yes
+    set_temp_variable = { test_id = 70040 }
+    ieee_test_70040 = yes
+    set_temp_variable = { test_id = 70041 }
+    ieee_test_70041 = yes
+    set_temp_variable = { test_id = 70042 }
+    ieee_test_70042 = yes
+    set_temp_variable = { test_id = 70043 }
+    ieee_test_70043 = yes
+    set_temp_variable = { test_id = 70044 }
+    ieee_test_70044 = yes
+    set_temp_variable = { test_id = 70045 }
+    ieee_test_70045 = yes
+    set_temp_variable = { test_id = 70046 }
+    ieee_test_70046 = yes
+    set_temp_variable = { test_id = 70047 }
+    ieee_test_70047 = yes
+    set_temp_variable = { test_id = 70048 }
+    ieee_test_70048 = yes
+    set_temp_variable = { test_id = 70049 }
+    ieee_test_70049 = yes
+    set_temp_variable = { test_id = 70050 }
+    ieee_test_70050 = yes
+    set_temp_variable = { test_id = 70051 }
+    ieee_test_70051 = yes
+    set_temp_variable = { test_id = 70052 }
+    ieee_test_70052 = yes
+    set_temp_variable = { test_id = 70053 }
+    ieee_test_70053 = yes
+}

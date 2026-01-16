@@ -1,0 +1,471 @@
+ieee_test_assert_equal_or_nan = {
+    set_temp_variable = { test_failed = 0 }
+    if = {
+        limit = {
+            NOT = { check_variable = { actual_output = expected_output } }
+            OR = {
+                set_temp_variable = { arg_a = actual_output }
+                NOT = { ieee_isnan = yes }
+                set_temp_variable = { arg_a = expected_output }
+                NOT = { ieee_isnan = yes }
+            }
+        }
+        set_temp_variable = { test_failed = 1 }
+    }
+}
+ieee_test_assert_close = {
+    set_temp_variable = { test_failed = 0 }
+    set_temp_variable = { arg_a = actual_output }
+    if = {
+        limit = { ieee_isnan = yes }
+        set_temp_variable = { test_failed = 1 }
+    }
+
+    set_temp_variable = { arg_a = actual_output }
+    set_temp_variable = { arg_b = expected_output }
+    ieeeSub = yes
+    set_temp_variable = { diff = out_a }
+
+    if = {
+        limit = {
+            set_temp_variable = { arg_a = diff }
+            set_temp_variable = { arg_b = 0 }
+            compareLess = yes
+        }
+        set_temp_variable = { arg_a = diff }
+        set_temp_variable = { arg_b = -1082130.432 }
+        ieeeMul = yes
+        set_temp_variable = { diff = out_a }
+    }
+
+    if = {
+        limit = {
+            set_temp_variable = { arg_a = diff }
+            set_temp_variable = { arg_b = tolerance }
+            compareGreater = yes
+        }
+        set_temp_variable = { test_failed = 1 }
+    }
+}
+ieee_test_log_result = {
+    if = {
+        limit = { check_variable = { test_failed = 1 } }
+        log = "Test [?test_id] - FAIL"
+        add_to_temp_array = { test_fail_array = test_id }
+    }
+    else = {
+        log = "Test [?test_id] - PASS"
+    }
+
+    set_temp_variable = { to_print_float = actual_output }
+    log = "Actual: [print_float_full]"
+    set_temp_variable = { to_print_float = expected_output }
+    log = "Expect: [print_float_full]"
+}
+
+ieee_test_70000 = {
+    set_temp_variable = { arg_a = 1065353.216 }
+    ieeeLn = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 0.000 }
+    ieee_test_assert_equal_or_nan = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70001 = {
+    set_temp_variable = { arg_a = 1073741.824 }
+    ieeeLn = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 1060205.080 }
+    ieee_test_assert_equal_or_nan = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70002 = {
+    set_temp_variable = { arg_a = 1056964.608 }
+    ieeeLn = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = -1087278.568 }
+    ieee_test_assert_equal_or_nan = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70003 = {
+    set_temp_variable = { arg_a = 0.000 }
+    ieeeLn = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = -8388.608 }
+    ieee_test_assert_equal_or_nan = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70004 = {
+    set_temp_variable = { arg_a = -2147483.648 }
+    ieeeLn = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = -8388.608 }
+    ieee_test_assert_equal_or_nan = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70005 = {
+    set_temp_variable = { arg_a = -1082130.432 }
+    ieeeLn = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 2143289.344 }
+    ieee_test_assert_equal_or_nan = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70006 = {
+    set_temp_variable = { arg_a = 2139095.040 }
+    ieeeLn = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 2139095.040 }
+    ieee_test_assert_equal_or_nan = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70007 = {
+    set_temp_variable = { arg_a = 2143289.344 }
+    ieeeLn = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 2143289.344 }
+    ieee_test_assert_equal_or_nan = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70008 = {
+    set_temp_variable = { arg_a = 1077936.128 }
+    ieeeLn = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 1066180.436 }
+    set_temp_variable = { tolerance = 990057.071 }
+    ieee_test_assert_close = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70009 = {
+    set_temp_variable = { arg_a = 1092616.192 }
+    ieeeLn = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 1075010.958 }
+    set_temp_variable = { tolerance = 990057.071 }
+    ieee_test_assert_close = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70010 = {
+    set_temp_variable = { arg_a = 1069547.520 }
+    ieeeLn = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 1053792.543 }
+    set_temp_variable = { tolerance = 990057.071 }
+    ieee_test_assert_close = yes
+    ieee_test_log_result = yes
+}
+
+ieee_test_70011 = {
+    set_temp_variable = { arg_a = 0.000 }
+    ieeeExp = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 1065353.216 }
+    ieee_test_assert_equal_or_nan = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70012 = {
+    set_temp_variable = { arg_a = 1060205.080 }
+    ieeeExp = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 1073741.824 }
+    set_temp_variable = { tolerance = 990057.071 }
+    ieee_test_assert_close = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70013 = {
+    set_temp_variable = { arg_a = 1065353.216 }
+    ieeeExp = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 1076754.516 }
+    set_temp_variable = { tolerance = 990057.071 }
+    ieee_test_assert_close = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70014 = {
+    set_temp_variable = { arg_a = -1082130.432 }
+    ieeeExp = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 1052531.378 }
+    set_temp_variable = { tolerance = 990057.071 }
+    ieee_test_assert_close = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70015 = {
+    set_temp_variable = { arg_a = 1082130.432 }
+    ieeeExp = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 1113220.225 }
+    set_temp_variable = { tolerance = 990057.071 }
+    ieee_test_assert_close = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70016 = {
+    set_temp_variable = { arg_a = -1065353.216 }
+    ieeeExp = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 1016466.094 }
+    set_temp_variable = { tolerance = 990057.071 }
+    ieee_test_assert_close = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70017 = {
+    set_temp_variable = { arg_a = 1118961.664 }
+    ieeeExp = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 2139095.040 }
+    ieee_test_assert_equal_or_nan = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70018 = {
+    set_temp_variable = { arg_a = -1026555.904 }
+    ieeeExp = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 0.000 }
+    ieee_test_assert_equal_or_nan = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70019 = {
+    set_temp_variable = { arg_a = 2143289.344 }
+    ieeeExp = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 2143289.344 }
+    ieee_test_assert_equal_or_nan = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70020 = {
+    set_temp_variable = { arg_a = 2139095.040 }
+    ieeeExp = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 2139095.040 }
+    ieee_test_assert_equal_or_nan = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70021 = {
+    set_temp_variable = { arg_a = -8388.608 }
+    ieeeExp = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 0.000 }
+    ieee_test_assert_equal_or_nan = yes
+    ieee_test_log_result = yes
+}
+
+ieee_test_70030 = {
+    set_temp_variable = { arg_a = 1073741.824 }
+    set_temp_variable = { arg_b = 1077936.128 }
+    ieeePow = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 1090519.040 }
+    ieee_test_assert_equal_or_nan = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70031 = {
+    set_temp_variable = { arg_a = 1073741.824 }
+    set_temp_variable = { arg_b = -1073741.824 }
+    ieeePow = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 1048576.000 }
+    ieee_test_assert_equal_or_nan = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70032 = {
+    set_temp_variable = { arg_a = 1082130.432 }
+    set_temp_variable = { arg_b = 1056964.608 }
+    ieeePow = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 1073741.824 }
+    set_temp_variable = { tolerance = 990057.071 }
+    ieee_test_assert_close = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70033 = {
+    set_temp_variable = { arg_a = 1091567.616 }
+    set_temp_variable = { arg_b = 1056964.608 }
+    ieeePow = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 1077936.128 }
+    set_temp_variable = { tolerance = 990057.071 }
+    ieee_test_assert_close = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70034 = {
+    set_temp_variable = { arg_a = 1084227.584 }
+    set_temp_variable = { arg_b = 1056964.608 }
+    ieeePow = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 1074731.965 }
+    set_temp_variable = { tolerance = 990057.071 }
+    ieee_test_assert_close = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70035 = {
+    set_temp_variable = { arg_a = 1073741.824 }
+    set_temp_variable = { arg_b = 1056964.608 }
+    ieeePow = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 1068827.891 }
+    set_temp_variable = { tolerance = 990057.071 }
+    ieee_test_assert_close = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70036 = {
+    set_temp_variable = { arg_a = -1073741.824 }
+    set_temp_variable = { arg_b = 1077936.128 }
+    ieeePow = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = -1056964.608 }
+    ieee_test_assert_equal_or_nan = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70037 = {
+    set_temp_variable = { arg_a = -1073741.824 }
+    set_temp_variable = { arg_b = 1073741.824 }
+    ieeePow = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 1082130.432 }
+    ieee_test_assert_equal_or_nan = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70038 = {
+    set_temp_variable = { arg_a = -1073741.824 }
+    set_temp_variable = { arg_b = -1069547.520 }
+    ieeePow = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = -1107296.256 }
+    ieee_test_assert_equal_or_nan = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70039 = {
+    set_temp_variable = { arg_a = -1073741.824 }
+    set_temp_variable = { arg_b = 1056964.608 }
+    ieeePow = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 2143289.344 }
+    ieee_test_assert_equal_or_nan = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70040 = {
+    set_temp_variable = { arg_a = -1082130.432 }
+    set_temp_variable = { arg_b = 1077936.128 }
+    ieeePow = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = -1082130.432 }
+    ieee_test_assert_equal_or_nan = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70041 = {
+    set_temp_variable = { arg_a = -1082130.432 }
+    set_temp_variable = { arg_b = 1073741.824 }
+    ieeePow = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 1065353.216 }
+    ieee_test_assert_equal_or_nan = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70042 = {
+    set_temp_variable = { arg_a = -1082130.432 }
+    set_temp_variable = { arg_b = 1075838.976 }
+    ieeePow = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 2143289.344 }
+    ieee_test_assert_equal_or_nan = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70043 = {
+    set_temp_variable = { arg_a = 0.000 }
+    set_temp_variable = { arg_b = 1084227.584 }
+    ieeePow = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 0.000 }
+    ieee_test_assert_equal_or_nan = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70044 = {
+    set_temp_variable = { arg_a = 0.000 }
+    set_temp_variable = { arg_b = -1082130.432 }
+    ieeePow = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 2139095.040 }
+    ieee_test_assert_equal_or_nan = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70045 = {
+    set_temp_variable = { arg_a = 0.000 }
+    set_temp_variable = { arg_b = 0.000 }
+    ieeePow = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 1065353.216 }
+    ieee_test_assert_equal_or_nan = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70046 = {
+    set_temp_variable = { arg_a = 1065353.216 }
+    set_temp_variable = { arg_b = 1123477.094 }
+    ieeePow = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 1065353.216 }
+    ieee_test_assert_equal_or_nan = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70047 = {
+    set_temp_variable = { arg_a = 1073741.824 }
+    set_temp_variable = { arg_b = 0.000 }
+    ieeePow = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 1065353.216 }
+    ieee_test_assert_equal_or_nan = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70048 = {
+    set_temp_variable = { arg_a = 1073741.824 }
+    set_temp_variable = { arg_b = 1065353.216 }
+    ieeePow = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 1073741.824 }
+    ieee_test_assert_equal_or_nan = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70049 = {
+    set_temp_variable = { arg_a = 2143289.344 }
+    set_temp_variable = { arg_b = 1073741.824 }
+    ieeePow = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 2143289.344 }
+    ieee_test_assert_equal_or_nan = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70050 = {
+    set_temp_variable = { arg_a = 1073741.824 }
+    set_temp_variable = { arg_b = 2143289.344 }
+    ieeePow = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 2143289.344 }
+    ieee_test_assert_equal_or_nan = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70051 = {
+    set_temp_variable = { arg_a = 2139095.040 }
+    set_temp_variable = { arg_b = 1073741.824 }
+    ieeePow = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 2139095.040 }
+    ieee_test_assert_equal_or_nan = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70052 = {
+    set_temp_variable = { arg_a = 2139095.040 }
+    set_temp_variable = { arg_b = -1082130.432 }
+    ieeePow = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 0.000 }
+    ieee_test_assert_equal_or_nan = yes
+    ieee_test_log_result = yes
+}
+ieee_test_70053 = {
+    set_temp_variable = { arg_a = 2139095.040 }
+    set_temp_variable = { arg_b = 0.000 }
+    ieeePow = yes
+    set_temp_variable = { actual_output = out_a }
+    set_temp_variable = { expected_output = 1065353.216 }
+    ieee_test_assert_equal_or_nan = yes
+    ieee_test_log_result = yes
+}

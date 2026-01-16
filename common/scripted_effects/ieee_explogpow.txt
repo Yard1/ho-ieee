@@ -1,0 +1,681 @@
+# ieeeLn
+### Calculates the natural logarithm of a floating point variable
+### The below function has 1 parameter: arg_a
+### The output will be pushed to the temp variable out_a
+### temp_array_1000 and temp_array_1001 are reserved for this function (via ieee* ops and conversions)
+## ARGUMENTS
+### arg_a will be interpreted as a floating-point variable
+## OUTPUT
+### out_a will contain ln(float(arg_a))
+### Implementation notes:
+### - We normalize x = m * 2^e into m in [1, 2) by repeated divide/multiply by 2 while tracking e.
+### - ln(x) = ln(m) + e * ln(2); ln(2) is a precomputed float constant.
+### - ln(m) is approximated via the atanh series with y = (m - 1) / (m + 1):
+###   ln(m) = 2 * (y + y^3/3 + y^5/5 + y^7/7 + y^9/9 + y^11/11).
+### - Truncating after the 11th power is a speed/accuracy tradeoff that is stable on [1, 2).
+### - Special cases (NaN, 0, negative, +/-inf) are handled up front.
+ieeeLn = {
+    set_temp_variable = { out_a = 0 }
+    set_temp_variable = { ln_input = arg_a }
+
+    # --- constants and IEEE sentinel values ---
+    set_temp_variable = { ieee_one = 1065353.216 }
+    set_temp_variable = { ieee_two = 1073741.824 }
+    set_temp_variable = { ieee_ln2 = 1060205.080 }
+    set_temp_variable = { ieee_nan = 2143289.344 }
+    set_temp_variable = { ieee_posinf = 2139095.040 }
+    set_temp_variable = { ieee_neginf = -8388.608 }
+    set_temp_variable = { ieee_negzero = -2147483.648 }
+
+    set_temp_variable = { ieee_three = 1077936.128 }
+    set_temp_variable = { ieee_five = 1084227.584 }
+    set_temp_variable = { ieee_seven = 1088421.888 }
+    set_temp_variable = { ieee_nine = 1091567.616 }
+    set_temp_variable = { ieee_eleven = 1093664.768 }
+
+    # --- special cases (NaN, zero, negative, +/-inf, one) ---
+    set_temp_variable = { arg_a = ln_input }
+    if = {
+        limit = { ieee_isnan = yes }
+        set_temp_variable = { out_a = ieee_nan }
+    }
+    else_if = {
+        limit = {
+            OR = {
+                check_variable = { ln_input = 0 }
+                check_variable = { ln_input = ieee_negzero }
+            }
+        }
+        set_temp_variable = { out_a = ieee_neginf }
+    }
+    else_if = {
+        limit = {
+            check_variable = { ln_input < 0 }
+        }
+        set_temp_variable = { out_a = ieee_nan }
+    }
+    else_if = {
+        limit = {
+            check_variable = { ln_input = ieee_posinf }
+        }
+        set_temp_variable = { out_a = ieee_posinf }
+    }
+    else_if = {
+        limit = {
+            check_variable = { ln_input = ieee_one }
+        }
+        set_temp_variable = { out_a = 0 }
+    }
+    else = {
+        # --- normalize ln_input into m * 2^e with m in [1, 2) ---
+        set_temp_variable = { m = ln_input }
+        set_temp_variable = { e = 0 }
+
+        while_loop_effect = {
+            limit = {
+                set_temp_variable = { arg_a = m }
+                set_temp_variable = { arg_b = ieee_two }
+                compareGreaterEqual = yes
+            }
+            set_temp_variable = { arg_a = m }
+            set_temp_variable = { arg_b = ieee_two }
+            ieeeDiv = yes
+            set_temp_variable = { m = out_a }
+            add_to_temp_variable = { e = 1 }
+        }
+
+        while_loop_effect = {
+            limit = {
+                set_temp_variable = { arg_a = m }
+                set_temp_variable = { arg_b = ieee_one }
+                compareLess = yes
+            }
+            set_temp_variable = { arg_a = m }
+            set_temp_variable = { arg_b = ieee_two }
+            ieeeMul = yes
+            set_temp_variable = { m = out_a }
+            subtract_from_temp_variable = { e = 1 }
+        }
+
+        # --- atanh-series approximation for ln(m) ---
+        set_temp_variable = { arg_a = m }
+        set_temp_variable = { arg_b = ieee_one }
+        ieeeSub = yes
+        set_temp_variable = { m_minus = out_a }
+
+        set_temp_variable = { arg_a = m }
+        set_temp_variable = { arg_b = ieee_one }
+        ieeeAdd = yes
+        set_temp_variable = { m_plus = out_a }
+
+        set_temp_variable = { arg_a = m_minus }
+        set_temp_variable = { arg_b = m_plus }
+        ieeeDiv = yes
+        set_temp_variable = { y = out_a }
+
+        set_temp_variable = { arg_a = y }
+        set_temp_variable = { arg_b = y }
+        ieeeMul = yes
+        set_temp_variable = { y2 = out_a }
+
+        set_temp_variable = { sum = y }
+        set_temp_variable = { term = y }
+
+        set_temp_variable = { arg_a = term }
+        set_temp_variable = { arg_b = y2 }
+        ieeeMul = yes
+        set_temp_variable = { term = out_a }
+        set_temp_variable = { arg_a = term }
+        set_temp_variable = { arg_b = ieee_three }
+        ieeeDiv = yes
+        set_temp_variable = { term_div = out_a }
+        set_temp_variable = { arg_a = sum }
+        set_temp_variable = { arg_b = term_div }
+        ieeeAdd = yes
+        set_temp_variable = { sum = out_a }
+
+        set_temp_variable = { arg_a = term }
+        set_temp_variable = { arg_b = y2 }
+        ieeeMul = yes
+        set_temp_variable = { term = out_a }
+        set_temp_variable = { arg_a = term }
+        set_temp_variable = { arg_b = ieee_five }
+        ieeeDiv = yes
+        set_temp_variable = { term_div = out_a }
+        set_temp_variable = { arg_a = sum }
+        set_temp_variable = { arg_b = term_div }
+        ieeeAdd = yes
+        set_temp_variable = { sum = out_a }
+
+        set_temp_variable = { arg_a = term }
+        set_temp_variable = { arg_b = y2 }
+        ieeeMul = yes
+        set_temp_variable = { term = out_a }
+        set_temp_variable = { arg_a = term }
+        set_temp_variable = { arg_b = ieee_seven }
+        ieeeDiv = yes
+        set_temp_variable = { term_div = out_a }
+        set_temp_variable = { arg_a = sum }
+        set_temp_variable = { arg_b = term_div }
+        ieeeAdd = yes
+        set_temp_variable = { sum = out_a }
+
+        set_temp_variable = { arg_a = term }
+        set_temp_variable = { arg_b = y2 }
+        ieeeMul = yes
+        set_temp_variable = { term = out_a }
+        set_temp_variable = { arg_a = term }
+        set_temp_variable = { arg_b = ieee_nine }
+        ieeeDiv = yes
+        set_temp_variable = { term_div = out_a }
+        set_temp_variable = { arg_a = sum }
+        set_temp_variable = { arg_b = term_div }
+        ieeeAdd = yes
+        set_temp_variable = { sum = out_a }
+
+        set_temp_variable = { arg_a = term }
+        set_temp_variable = { arg_b = y2 }
+        ieeeMul = yes
+        set_temp_variable = { term = out_a }
+        set_temp_variable = { arg_a = term }
+        set_temp_variable = { arg_b = ieee_eleven }
+        ieeeDiv = yes
+        set_temp_variable = { term_div = out_a }
+        set_temp_variable = { arg_a = sum }
+        set_temp_variable = { arg_b = term_div }
+        ieeeAdd = yes
+        set_temp_variable = { sum = out_a }
+
+        set_temp_variable = { arg_a = sum }
+        set_temp_variable = { arg_b = ieee_two }
+        ieeeMul = yes
+        set_temp_variable = { ln_m = out_a }
+
+        # --- combine ln(m) + e*ln(2) ---
+        set_temp_variable = { arg_a = e }
+        pdxvar_to_float = yes
+        set_temp_variable = { e_float = out_a }
+
+        set_temp_variable = { arg_a = e_float }
+        set_temp_variable = { arg_b = ieee_ln2 }
+        ieeeMul = yes
+        set_temp_variable = { e_term = out_a }
+
+        set_temp_variable = { arg_a = ln_m }
+        set_temp_variable = { arg_b = e_term }
+        ieeeAdd = yes
+        set_temp_variable = { out_a = out_a }
+    }
+}
+# ieeeExp
+### Calculates exp(x) for a floating point variable
+### The below function has 1 parameter: arg_a
+### The output will be pushed to the temp variable out_a
+### temp_array_1000 and temp_array_1001 are reserved for this function (via ieee* ops and conversions)
+## ARGUMENTS
+### arg_a will be interpreted as a floating-point variable
+## OUTPUT
+### out_a will contain exp(float(arg_a))
+### Implementation notes:
+### - Range reduction: x = k * ln(2) + r, with r kept in [-ln(2)/2, ln(2)/2].
+### - k is obtained by rounding x / ln(2) in pdxvar space, then r = x - k*ln(2).
+### - exp(x) = 2^k * exp(r); 2^k is applied via repeated *2 or *0.5 loops (no bit shifts).
+### - exp(r) uses a truncated Taylor series:
+###   exp(r) ≈ 1 + r + r^2/2! + r^3/3! + r^4/4! + r^5/5! + r^6/6! + r^7/7!.
+### - Overflow/underflow are clamped to +/-inf or 0 using precomputed bounds.
+ieeeExp = {
+    set_temp_variable = { out_a = 0 }
+    set_temp_variable = { exp_input = arg_a }
+
+    # --- constants and IEEE sentinel values ---
+    set_temp_variable = { ieee_one = 1065353.216 }
+    set_temp_variable = { ieee_two = 1073741.824 }
+    set_temp_variable = { ieee_half = 1056964.608 }
+    set_temp_variable = { ieee_ln2 = 1060205.080 }
+    set_temp_variable = { ieee_inv_ln2 = 1069066.811 }
+    set_temp_variable = { ieee_max_exp = 1118830.592 }
+    set_temp_variable = { ieee_min_exp = -1026686.976 }
+    set_temp_variable = { ieee_neg_one = -1082130.432 }
+    set_temp_variable = { ieee_posinf = 2139095.040 }
+    set_temp_variable = { ieee_neginf = -8388.608 }
+    set_temp_variable = { ieee_nan = 2143289.344 }
+
+    set_temp_variable = { ieee_six = 1086324.736 }
+    set_temp_variable = { ieee_twenty_four = 1103101.952 }
+    set_temp_variable = { ieee_one_twenty = 1123024.896 }
+    set_temp_variable = { ieee_seven_twenty = 1144258.560 }
+    set_temp_variable = { ieee_five_thousand_forty = 1167949.824 }
+
+    # --- special cases (NaN, +/-inf) ---
+    set_temp_variable = { arg_a = exp_input }
+    if = {
+        limit = { ieee_isnan = yes }
+        set_temp_variable = { out_a = ieee_nan }
+    }
+    else_if = {
+        limit = {
+            check_variable = { exp_input = ieee_posinf }
+        }
+        set_temp_variable = { out_a = ieee_posinf }
+    }
+    else_if = {
+        limit = {
+            check_variable = { exp_input = ieee_neginf }
+        }
+        set_temp_variable = { out_a = 0 }
+    }
+    else = {
+        # --- clamp to avoid overflow/underflow ---
+        if = {
+            limit = {
+                set_temp_variable = { arg_a = exp_input }
+                set_temp_variable = { arg_b = ieee_max_exp }
+                compareGreater = yes
+            }
+            set_temp_variable = { out_a = ieee_posinf }
+        }
+        else_if = {
+            limit = {
+                set_temp_variable = { arg_a = exp_input }
+                set_temp_variable = { arg_b = ieee_min_exp }
+                compareLess = yes
+            }
+            set_temp_variable = { out_a = 0 }
+        }
+        else = {
+            # --- range reduction: x = k*ln2 + r, r in [-ln2/2, ln2/2] ---
+            set_temp_variable = { arg_a = exp_input }
+            set_temp_variable = { arg_b = ieee_inv_ln2 }
+            ieeeMul = yes
+            set_temp_variable = { arg_a = out_a }
+            float_to_pdxvar = yes
+            set_temp_variable = { k = out_a }
+            round_temp_variable = k
+
+            set_temp_variable = { arg_a = k }
+            pdxvar_to_float = yes
+            set_temp_variable = { k_float = out_a }
+
+            set_temp_variable = { arg_a = k_float }
+            set_temp_variable = { arg_b = ieee_ln2 }
+            ieeeMul = yes
+            set_temp_variable = { k_ln2 = out_a }
+
+            set_temp_variable = { arg_a = exp_input }
+            set_temp_variable = { arg_b = k_ln2 }
+            ieeeSub = yes
+            set_temp_variable = { r = out_a }
+
+            set_temp_variable = { arg_a = ieee_ln2 }
+            set_temp_variable = { arg_b = ieee_half }
+            ieeeMul = yes
+            set_temp_variable = { half_ln2 = out_a }
+
+            set_temp_variable = { arg_a = half_ln2 }
+            set_temp_variable = { arg_b = ieee_neg_one }
+            ieeeMul = yes
+            set_temp_variable = { neg_half_ln2 = out_a }
+
+            if = {
+                limit = {
+                    set_temp_variable = { arg_a = r }
+                    set_temp_variable = { arg_b = half_ln2 }
+                    compareGreater = yes
+                }
+                set_temp_variable = { arg_a = r }
+                set_temp_variable = { arg_b = ieee_ln2 }
+                ieeeSub = yes
+                set_temp_variable = { r = out_a }
+                add_to_temp_variable = { k = 1 }
+            }
+            if = {
+                limit = {
+                    set_temp_variable = { arg_a = r }
+                    set_temp_variable = { arg_b = neg_half_ln2 }
+                    compareLess = yes
+                }
+                set_temp_variable = { arg_a = r }
+                set_temp_variable = { arg_b = ieee_ln2 }
+                ieeeAdd = yes
+                set_temp_variable = { r = out_a }
+                subtract_from_temp_variable = { k = 1 }
+            }
+
+            # --- exp(r) via truncated Taylor series (7 degrees) ---
+            set_temp_variable = { arg_a = r }
+            set_temp_variable = { arg_b = ieee_one }
+            ieeeAdd = yes
+            set_temp_variable = { p = out_a }
+
+            set_temp_variable = { arg_a = r }
+            set_temp_variable = { arg_b = r }
+            ieeeMul = yes
+            set_temp_variable = { term = out_a }
+
+            set_temp_variable = { arg_a = term }
+            set_temp_variable = { arg_b = ieee_two }
+            ieeeDiv = yes
+            set_temp_variable = { temp = out_a }
+            set_temp_variable = { arg_a = p }
+            set_temp_variable = { arg_b = temp }
+            ieeeAdd = yes
+            set_temp_variable = { p = out_a }
+
+            set_temp_variable = { arg_a = term }
+            set_temp_variable = { arg_b = r }
+            ieeeMul = yes
+            set_temp_variable = { term = out_a }
+            set_temp_variable = { arg_a = term }
+            set_temp_variable = { arg_b = ieee_six }
+            ieeeDiv = yes
+            set_temp_variable = { temp = out_a }
+            set_temp_variable = { arg_a = p }
+            set_temp_variable = { arg_b = temp }
+            ieeeAdd = yes
+            set_temp_variable = { p = out_a }
+
+            set_temp_variable = { arg_a = term }
+            set_temp_variable = { arg_b = r }
+            ieeeMul = yes
+            set_temp_variable = { term = out_a }
+            set_temp_variable = { arg_a = term }
+            set_temp_variable = { arg_b = ieee_twenty_four }
+            ieeeDiv = yes
+            set_temp_variable = { temp = out_a }
+            set_temp_variable = { arg_a = p }
+            set_temp_variable = { arg_b = temp }
+            ieeeAdd = yes
+            set_temp_variable = { p = out_a }
+
+            set_temp_variable = { arg_a = term }
+            set_temp_variable = { arg_b = r }
+            ieeeMul = yes
+            set_temp_variable = { term = out_a }
+            set_temp_variable = { arg_a = term }
+            set_temp_variable = { arg_b = ieee_one_twenty }
+            ieeeDiv = yes
+            set_temp_variable = { temp = out_a }
+            set_temp_variable = { arg_a = p }
+            set_temp_variable = { arg_b = temp }
+            ieeeAdd = yes
+            set_temp_variable = { p = out_a }
+
+            set_temp_variable = { arg_a = term }
+            set_temp_variable = { arg_b = r }
+            ieeeMul = yes
+            set_temp_variable = { term = out_a }
+            set_temp_variable = { arg_a = term }
+            set_temp_variable = { arg_b = ieee_seven_twenty }
+            ieeeDiv = yes
+            set_temp_variable = { temp = out_a }
+            set_temp_variable = { arg_a = p }
+            set_temp_variable = { arg_b = temp }
+            ieeeAdd = yes
+            set_temp_variable = { p = out_a }
+
+            set_temp_variable = { arg_a = term }
+            set_temp_variable = { arg_b = r }
+            ieeeMul = yes
+            set_temp_variable = { term = out_a }
+            set_temp_variable = { arg_a = term }
+            set_temp_variable = { arg_b = ieee_five_thousand_forty }
+            ieeeDiv = yes
+            set_temp_variable = { temp = out_a }
+            set_temp_variable = { arg_a = p }
+            set_temp_variable = { arg_b = temp }
+            ieeeAdd = yes
+            set_temp_variable = { p = out_a }
+
+            # --- scale by 2^k with looped multiply/divide by 2 ---
+            if = {
+                limit = {
+                    check_variable = { k > 127 }
+                }
+                set_temp_variable = { out_a = ieee_posinf }
+            }
+            else_if = {
+                limit = {
+                    check_variable = { k < -126 }
+                }
+                set_temp_variable = { out_a = 0 }
+            }
+            else = {
+                set_temp_variable = { scaled = p }
+                set_temp_variable = { k_work = k }
+
+                if = {
+                    limit = {
+                        check_variable = { k_work > 0 }
+                    }
+                    while_loop_effect = {
+                        limit = {
+                            check_variable = { k_work > 0 }
+                        }
+                        set_temp_variable = { arg_a = scaled }
+                        set_temp_variable = { arg_b = ieee_two }
+                        ieeeMul = yes
+                        set_temp_variable = { scaled = out_a }
+                        subtract_from_temp_variable = { k_work = 1 }
+                    }
+                }
+                else_if = {
+                    limit = {
+                        check_variable = { k_work < 0 }
+                    }
+                    while_loop_effect = {
+                        limit = {
+                            check_variable = { k_work < 0 }
+                        }
+                        set_temp_variable = { arg_a = scaled }
+                        set_temp_variable = { arg_b = ieee_half }
+                        ieeeMul = yes
+                        set_temp_variable = { scaled = out_a }
+                        add_to_temp_variable = { k_work = 1 }
+                    }
+                }
+
+                # --- final output ---
+                set_temp_variable = { out_a = scaled }
+            }
+        }
+    }
+}
+# ieeePow
+### Raises a floating point base to a floating point exponent
+### The below function has 2 parameters: arg_a and arg_b
+### The output will be pushed to the temp variable out_a
+### temp_array_1000 and temp_array_1001 are reserved for this function (via ieee* ops and conversions)
+## ARGUMENTS
+### arg_a and arg_b will be interpreted as floating-point variables
+## OUTPUT
+### out_a will contain float(arg_a) ^ float(arg_b)
+### Implementation notes:
+### - Special cases short-circuit NaN, zero, +/-1, and +/-inf behavior.
+### - For negative bases, only integer exponents are allowed; we detect integers by
+###   float_to_pdxvar + round and require exact equality, otherwise return NaN.
+### - Integer exponentiation uses exponentiation by squaring (O(log n) multiplies).
+### - General case uses: a^b = exp(b * ln(a)), inheriting ln/exp approximation error.
+ieeePow = {
+    set_temp_variable = { out_a = 0 }
+    set_temp_variable = { pow_base_input = arg_a }
+    set_temp_variable = { pow_exp_input = arg_b }
+
+    # --- constants and IEEE sentinel values ---
+    set_temp_variable = { ieee_one = 1065353.216 }
+    set_temp_variable = { ieee_neg_one = -1082130.432 }
+    set_temp_variable = { ieee_posinf = 2139095.040 }
+    set_temp_variable = { ieee_nan = 2143289.344 }
+    set_temp_variable = { ieee_negzero = -2147483.648 }
+
+    # --- special cases and domain checks ---
+    set_temp_variable = { arg_a = pow_base_input }
+    if = {
+        limit = { ieee_isnan = yes }
+        set_temp_variable = { out_a = ieee_nan }
+    }
+    else = {
+        set_temp_variable = { arg_a = pow_exp_input }
+        if = {
+            limit = { ieee_isnan = yes }
+            set_temp_variable = { out_a = ieee_nan }
+        }
+        else_if = {
+            limit = {
+                OR = {
+                    check_variable = { pow_exp_input = 0 }
+                    check_variable = { pow_exp_input = ieee_negzero }
+                }
+            }
+            set_temp_variable = { out_a = ieee_one }
+        }
+        else_if = {
+            limit = {
+                check_variable = { pow_base_input = ieee_one }
+            }
+            set_temp_variable = { out_a = ieee_one }
+        }
+        else_if = {
+            # --- (-1)^x: only defined for integer x ---
+            limit = {
+                check_variable = { pow_base_input = ieee_neg_one }
+            }
+            set_temp_variable = { arg_a = pow_exp_input }
+            float_to_pdxvar = yes
+            set_temp_variable = { exp_pdx = out_a }
+            if = {
+                limit = {
+                    OR = {
+                        NOT = { check_variable = { inf_flag = 0 } }
+                        NOT = { check_variable = { nan_flag = 0 } }
+                    }
+                }
+                set_temp_variable = { out_a = ieee_nan }
+            }
+            else = {
+                set_temp_variable = { exp_round = exp_pdx }
+                round_temp_variable = exp_round
+                if = {
+                    limit = {
+                        NOT = { check_variable = { exp_pdx = exp_round } }
+                    }
+                    set_temp_variable = { out_a = ieee_nan }
+                }
+                else = {
+                    set_temp_variable = { exp_abs = exp_round }
+                    if = {
+                        limit = { check_variable = { exp_abs < 0 } }
+                        multiply_temp_variable = { exp_abs = -1 }
+                    }
+                    set_temp_variable = { exp_mod = exp_abs }
+                    modulo_temp_variable = { exp_mod = 2 }
+                    if = {
+                        limit = { check_variable = { exp_mod = 0 } }
+                        set_temp_variable = { out_a = ieee_one }
+                    }
+                    else = {
+                        set_temp_variable = { out_a = ieee_neg_one }
+                    }
+                }
+            }
+        }
+        else_if = {
+            # --- zero base with positive/negative exponent ---
+            limit = {
+                OR = {
+                    check_variable = { pow_base_input = 0 }
+                    check_variable = { pow_base_input = ieee_negzero }
+                }
+            }
+            if = {
+                limit = {
+                    set_temp_variable = { arg_a = pow_exp_input }
+                    set_temp_variable = { arg_b = 0 }
+                    compareGreater = yes
+                }
+                set_temp_variable = { out_a = 0 }
+            }
+            else = {
+                set_temp_variable = { out_a = ieee_posinf }
+            }
+        }
+        else_if = {
+            # --- negative base: require integer exponent, then use exponentiation by squaring ---
+            limit = {
+                check_variable = { pow_base_input < 0 }
+            }
+            set_temp_variable = { arg_a = pow_exp_input }
+            float_to_pdxvar = yes
+            set_temp_variable = { exp_pdx = out_a }
+            if = {
+                limit = {
+                    OR = {
+                        NOT = { check_variable = { inf_flag = 0 } }
+                        NOT = { check_variable = { nan_flag = 0 } }
+                    }
+                }
+                set_temp_variable = { out_a = ieee_nan }
+            }
+            else = {
+                set_temp_variable = { exp_round = exp_pdx }
+                round_temp_variable = exp_round
+                if = {
+                    limit = {
+                        NOT = { check_variable = { exp_pdx = exp_round } }
+                    }
+                    set_temp_variable = { out_a = ieee_nan }
+                }
+                else = {
+                    set_temp_variable = { pow_base = pow_base_input }
+                    set_temp_variable = { pow_res = ieee_one }
+                    set_temp_variable = { pow_n = exp_round }
+                    set_temp_variable = { neg_exp = 0 }
+                    if = {
+                        limit = { check_variable = { pow_n < 0 } }
+                        set_temp_variable = { neg_exp = 1 }
+                        multiply_temp_variable = { pow_n = -1 }
+                    }
+                    while_loop_effect = {
+                        limit = { check_variable = { pow_n > 0 } }
+                        set_temp_variable = { pow_mod = pow_n }
+                        modulo_temp_variable = { pow_mod = 2 }
+                        if = {
+                            limit = { check_variable = { pow_mod = 1 } }
+                            set_temp_variable = { arg_a = pow_res }
+                            set_temp_variable = { arg_b = pow_base }
+                            ieeeMul = yes
+                            set_temp_variable = { pow_res = out_a }
+                        }
+                        set_temp_variable = { arg_a = pow_base }
+                        set_temp_variable = { arg_b = pow_base }
+                        ieeeMul = yes
+                        set_temp_variable = { pow_base = out_a }
+
+                        subtract_from_temp_variable = { pow_n = pow_mod }
+                        divide_temp_variable = { pow_n = 2 }
+                    }
+                    if = {
+                        limit = { check_variable = { neg_exp = 1 } }
+                        set_temp_variable = { arg_a = ieee_one }
+                        set_temp_variable = { arg_b = pow_res }
+                        ieeeDiv = yes
+                        set_temp_variable = { pow_res = out_a }
+                    }
+                    set_temp_variable = { out_a = pow_res }
+                }
+            }
+        }
+        else = {
+            # --- general case: exp(exp * ln(base)) ---
+            set_temp_variable = { arg_a = pow_base_input }
+            ieeeLn = yes
+            set_temp_variable = { ln_base = out_a }
+
+            set_temp_variable = { arg_a = ln_base }
+            set_temp_variable = { arg_b = pow_exp_input }
+            ieeeMul = yes
+            set_temp_variable = { arg_a = out_a }
+            ieeeExp = yes
+            set_temp_variable = { out_a = out_a }
+        }
+    }
+}

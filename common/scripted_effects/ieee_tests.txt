@@ -10,6 +10,7 @@ ieee_run_tests = {
     # ieee_run_tests_addsub = yes
     # ieee_run_tests_multiplication = yes
     # ieee_run_tests_division = yes
+    # ieee_run_tests_explogpow = yes
 
     for_each_loop = {
         array = test_fail_array
@@ -53,6 +54,7 @@ ieee_get_test_count = {
     add_to_temp_array = { temp_test_count_array = 9154 }     # addition and subtraction
     add_to_temp_array = { temp_test_count_array = 9152 }     # multiplication
     add_to_temp_array = { temp_test_count_array = 9151 }     # division
+    add_to_temp_array = { temp_test_count_array = 46 }       # exp/log/pow
 }
 # test basic io
 ## See ieee_tests_io.txt
@@ -68,3 +70,5 @@ ieee_get_test_count = {
 ## See ieee_tests_mult.txt
 # test division
 ## See ieee_tests_div.txt
+# test exp/log/pow
+## See ieee_tests_explogpow.txt

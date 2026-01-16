@@ -1,0 +1,1337 @@
+## Simple MNIST-style neural network (14x14 input, 1 hidden layer)
+
+## Usage:
+##  - Inputs: none
+##  - Outputs: initializes globals (sizes, constants, weights), sets global.nn_initialized = 1
+## One-time setup for dimensions, constants, and weights.
+mnist_nn_setup = {
+    set_variable = { global.nn_epochs = 3 }
+    if = {
+        limit = {
+            NOT = { check_variable = { global.nn_initialized = 1 } }
+        }
+        set_variable = { global.nn_input_size = 196 }    # 14x14
+        set_variable = { global.nn_hidden_size = 100 }
+        set_variable = { global.nn_output_size = 10 }
+        mnist_nn_init_constants = yes
+        mnist_nn_use_softmax_xent_loss = yes
+        mnist_nn_enable_dropout = yes
+        mnist_nn_enable_sparse_inputs = yes
+        mnist_nn_init_weights = yes
+        mnist_nn_precompute_row_bases = yes
+        set_variable = { global.nn_initialized = 1 }
+    }
+}
+
+## Usage:
+##  - Inputs: none
+##  - Outputs: initializes globals (sizes, constants, weights), sets global.nn_initialized = 1
+## One-time setup for dimensions, constants, and weights. Resets global.nn_initialized.
+mnist_nn_reset = {
+    set_variable = { global.nn_initialized = 0 }
+    mnist_nn_setup = yes
+}
+
+## Usage:
+##  - Inputs: none
+##  - Outputs: global.nn_loss_type = 0
+## Select mean squared error with linear output.
+mnist_nn_use_mse_loss = {
+    set_variable = { global.nn_loss_type = 0 }
+}
+
+## Usage:
+##  - Inputs: none
+##  - Outputs: global.nn_loss_type = 1
+## Select softmax + cross-entropy.
+mnist_nn_use_softmax_xent_loss = {
+    set_variable = { global.nn_loss_type = 1 }
+}
+
+## Usage:
+##  - Inputs: none
+##  - Outputs: global.nn_dropout_enabled = 1
+## Enable dropout in training.
+mnist_nn_enable_dropout = {
+    set_variable = { global.nn_dropout_enabled = 1 }
+}
+
+## Usage:
+##  - Inputs: none
+##  - Outputs: global.nn_dropout_enabled = 0
+## Disable dropout.
+mnist_nn_disable_dropout = {
+    set_variable = { global.nn_dropout_enabled = 0 }
+}
+
+## Usage:
+##  - Inputs: none
+##  - Outputs: global.nn_use_sparse_inputs = 1
+## Enable sparse input path (requires mnist_nn_build_sparse_inputs).
+mnist_nn_enable_sparse_inputs = {
+    set_variable = { global.nn_use_sparse_inputs = 1 }
+}
+
+## Usage:
+##  - Inputs: none
+##  - Outputs: global.nn_use_sparse_inputs = 0
+## Disable sparse input path.
+mnist_nn_disable_sparse_inputs = {
+    set_variable = { global.nn_use_sparse_inputs = 0 }
+}
+
+## Usage:
+##  - Inputs: none
+##  - Outputs: global.nn_f0, global.nn_f1, global.nn_fneg1, global.nn_lr, global.nn_w_init, global.nn_eps,
+##    global.nn_dropout_enabled, global.nn_dropout_keep_pdx, global.nn_dropout_scale,
+##    global.nn_use_sparse_inputs, global.nn_sparse_ready
+## Precompute float constants used across the network.
+mnist_nn_init_constants = {
+    set_temp_variable = { arg_a = 0 }
+    pdxvar_to_float = yes
+    set_variable = { global.nn_f0 = out_a }
+
+    set_temp_variable = { arg_a = 1 }
+    pdxvar_to_float = yes
+    set_variable = { global.nn_f1 = out_a }
+
+    set_temp_variable = { arg_a = -1 }
+    pdxvar_to_float = yes
+    set_variable = { global.nn_fneg1 = out_a }
+
+    set_temp_variable = { arg_a = 0.005 }
+    pdxvar_to_float = yes
+    set_variable = { global.nn_lr = out_a }
+
+    set_temp_variable = { arg_a = 0.01 }
+    pdxvar_to_float = yes
+    set_variable = { global.nn_w_init = out_a }
+
+    set_temp_variable = { arg_a = 0.000001 }
+    pdxvar_to_float = yes
+    set_variable = { global.nn_eps = out_a }
+
+    set_variable = { global.nn_dropout_enabled = 0 }
+    set_variable = { global.nn_dropout_keep_pdx = 0.5 }
+    set_temp_variable = { arg_a = 2 }
+    pdxvar_to_float = yes
+    set_variable = { global.nn_dropout_scale = out_a }
+
+    set_variable = { global.nn_use_sparse_inputs = 0 }
+    set_variable = { global.nn_sparse_ready = 0 }
+}
+
+## Usage:
+##  - Inputs: global.nn_input_size, global.nn_hidden_size, global.nn_output_size, global.nn_w_init
+##  - Outputs: global.nn_w1, global.nn_w2 arrays populated
+## Initialize W1 and W2 with random values in a small range.
+mnist_nn_init_weights = {
+    set_temp_variable = { w1_size = global.nn_input_size }
+    multiply_temp_variable = { w1_size = global.nn_hidden_size }
+    clear_array = global.nn_w1
+    resize_array = {
+        array = global.nn_w1
+        size = w1_size
+        value = global.nn_w_init
+    }
+    for_loop_effect = {
+        start = 0
+        end = w1_size
+        compare = less_than
+        value = w1_idx
+
+        # Random init in [-0.1, 0.1] using temp random, then convert to float bits.
+        set_temp_variable_to_random = rand
+        multiply_temp_variable = { rand = 0.2 }
+        subtract_from_temp_variable = { rand = 0.1 }
+        set_temp_variable = { arg_a = rand }
+        pdxvar_to_float = yes
+        set_variable = { global.nn_w1^w1_idx = out_a }
+    }
+
+    set_temp_variable = { w2_size = global.nn_hidden_size }
+    multiply_temp_variable = { w2_size = global.nn_output_size }
+    clear_array = global.nn_w2
+    resize_array = {
+        array = global.nn_w2
+        size = w2_size
+        value = global.nn_w_init
+    }
+    for_loop_effect = {
+        start = 0
+        end = w2_size
+        compare = less_than
+        value = w2_idx
+
+        # Random init in [-0.1, 0.1] using temp random, then convert to float bits.
+        set_temp_variable_to_random = rand
+        multiply_temp_variable = { rand = 0.2 }
+        subtract_from_temp_variable = { rand = 0.1 }
+        set_temp_variable = { arg_a = rand }
+        pdxvar_to_float = yes
+        set_variable = { global.nn_w2^w2_idx = out_a }
+    }
+}
+
+## Usage:
+##  - Inputs: global.nn_input_size, global.nn_hidden_size, global.nn_output_size
+##  - Outputs: global.nn_w1_row_base, global.nn_w2_row_base arrays populated
+## Precompute flattened row bases for W1 and W2 indexing.
+mnist_nn_precompute_row_bases = {
+    clear_array = global.nn_w1_row_base
+    resize_array = {
+        array = global.nn_w1_row_base
+        size = global.nn_input_size
+        value = 0
+    }
+    set_temp_variable = { row_base = 0 }
+    for_loop_effect = {
+        start = 0
+        end = global.nn_input_size
+        compare = less_than
+        value = i
+
+        set_variable = { global.nn_w1_row_base^i = row_base }
+        add_to_temp_variable = { row_base = global.nn_hidden_size }
+    }
+
+    clear_array = global.nn_w2_row_base
+    resize_array = {
+        array = global.nn_w2_row_base
+        size = global.nn_hidden_size
+        value = 0
+    }
+    set_temp_variable = { row_base = 0 }
+    for_loop_effect = {
+        start = 0
+        end = global.nn_hidden_size
+        compare = less_than
+        value = h
+
+        set_variable = { global.nn_w2_row_base^h = row_base }
+        add_to_temp_variable = { row_base = global.nn_output_size }
+    }
+}
+
+## Usage:
+##  - Inputs: global.nn_train_samples, global.nn_train_images
+##  - Outputs: global.nn_train_sparse_idx, global.nn_train_sparse_val, global.nn_train_sparse_off, global.nn_sparse_ready
+## Build sparse input representation (offsets + indices + values).
+mnist_nn_build_sparse_inputs = {
+    clear_array = global.nn_train_sparse_idx
+    clear_array = global.nn_train_sparse_val
+    clear_array = global.nn_train_sparse_off
+    set_variable = { global.nn_sparse_ready = 0 }
+
+    if = {
+        limit = { check_variable = { global.nn_train_samples > 0 } }
+        set_temp_variable = { sample_start = 0 }
+        while_loop_effect = {
+            limit = { check_variable = { sample_start < global.nn_train_samples } }
+
+            # sample_end = min(sample_start + 999, last_index)
+            set_temp_variable = { sample_end = sample_start }
+            add_to_temp_variable = { sample_end = 999 }
+            set_temp_variable = { train_last = global.nn_train_samples }
+            subtract_from_temp_variable = { train_last = 1 }
+            if = {
+                limit = { check_variable = { sample_end > train_last } }
+                set_temp_variable = { sample_end = train_last }
+            }
+
+            for_loop_effect = {
+                start = sample_start
+                end = sample_end
+                compare = less_than_or_equals
+                value = nn_sample_index
+
+                # Record offset for this sample.
+                set_temp_variable = { sparse_pos = global.nn_train_sparse_idx^num }
+                add_to_array = { global.nn_train_sparse_off = sparse_pos }
+
+                set_temp_variable = { img_idx = nn_sample_index }
+                multiply_temp_variable = { img_idx = global.nn_input_size }
+                for_loop_effect = {
+                    start = 0
+                    end = global.nn_input_size
+                    compare = less_than
+                    value = i
+
+                    set_temp_variable = { x = global.nn_train_images^img_idx }
+                    set_temp_variable = { arg_a = x }
+                    set_temp_variable = { arg_b = global.nn_f0 }
+                    if = {
+                        limit = { compareGreater = yes }
+                        add_to_array = { global.nn_train_sparse_idx = i }
+                        add_to_array = { global.nn_train_sparse_val = x }
+                    }
+                    add_to_temp_variable = { img_idx = 1 }
+                }
+            }
+
+            # Jump by 1000 to respect loop caps.
+            add_to_temp_variable = { sample_start = 1000 }
+        }
+    }
+
+    # Final offset sentinel.
+    set_temp_variable = { sparse_pos = global.nn_train_sparse_idx^num }
+    add_to_array = { global.nn_train_sparse_off = sparse_pos }
+    set_variable = { global.nn_sparse_ready = 1 }
+}
+
+## Usage:
+##  - Inputs: nn_sample_index, global.nn_train_images, global.nn_w1
+##  - Outputs: temp_nn_hidden
+## Dense hidden layer forward pass for one sample.
+mnist_nn_forward_hidden_dense = {
+    set_temp_variable = { sample_base = nn_sample_index }
+    multiply_temp_variable = { sample_base = global.nn_input_size }
+
+    for_loop_effect = {
+        start = 0
+        end = global.nn_hidden_size
+        compare = less_than
+        value = h
+
+        set_temp_variable = { acc = global.nn_f0 }
+        set_temp_variable = { img_idx = sample_base }
+        set_temp_variable = { w_idx = h }
+        for_loop_effect = {
+            start = 0
+            end = global.nn_input_size
+            compare = less_than
+            value = i
+
+            set_temp_variable = { x = global.nn_train_images^img_idx }
+
+            if = {
+                limit = {
+                    check_variable = { nn_sample_index = 0 }
+                    check_variable = { h = 0 }
+                }
+                set_temp_variable = { arg_a = x }
+                if = { limit = { ieee_isnan = yes } log = "MNIST NN debug x NaN i [?i]" }
+            }
+
+            set_temp_variable = { w = global.nn_w1^w_idx }
+
+            if = {
+                limit = {
+                    check_variable = { nn_sample_index = 0 }
+                    check_variable = { h = 0 }
+                }
+                # log = "MNIST NN debug x0 [?x] w0 [?w]"
+                set_temp_variable = { arg_a = w }
+                if = { limit = { ieee_isnan = yes } log = "MNIST NN debug w NaN i [?i]" }
+            }
+
+            # acc += x * w
+            set_temp_variable = { arg_a = x }
+            set_temp_variable = { arg_b = w }
+            ieeeMul = yes
+            if = {
+                limit = {
+                    check_variable = { nn_sample_index = 0 }
+                    check_variable = { h = 0 }
+                }
+                set_temp_variable = { arg_a = out_a }
+                if = { limit = { ieee_isnan = yes } log = "MNIST NN debug mul NaN i [?i] out [?out_a]" }
+            }
+            set_temp_variable = { arg_a = acc }
+            set_temp_variable = { arg_b = out_a }
+            ieeeAdd = yes
+            if = {
+                limit = {
+                    check_variable = { nn_sample_index = 0 }
+                    check_variable = { h = 0 }
+                }
+                set_temp_variable = { arg_a = out_a }
+                if = { limit = { ieee_isnan = yes } log = "MNIST NN debug add NaN i [?i] out [?out_a]" }
+            }
+            set_temp_variable = { acc = out_a }
+
+            add_to_temp_variable = { img_idx = 1 }
+            add_to_temp_variable = { w_idx = global.nn_hidden_size }
+        }
+
+        # ReLU
+        set_temp_variable = { arg_a = acc }
+        set_temp_variable = { arg_b = global.nn_f0 }
+        if = {
+            limit = { compareLess = yes }
+            set_temp_variable = { acc = global.nn_f0 }
+        }
+        # NaN guard for debugging.
+        set_temp_variable = { arg_a = acc }
+        if = {
+            limit = { ieee_isnan = yes }
+            log = "MNIST NN NaN hidden h [?h] sample [?nn_sample_index]"
+        }
+        if = {
+            limit = {
+                check_variable = { global.nn_dropout_enabled = 1 }
+                check_variable = { nn_apply_dropout = 1 }
+            }
+            # Dropout mask: keep with p=0.5, scale by 2.
+            set_temp_variable_to_random = rand
+            set_temp_variable = { mask = global.nn_f0 }
+            if = {
+                limit = { check_variable = { rand < global.nn_dropout_keep_pdx } }
+                set_temp_variable = { mask = global.nn_f1 }
+            }
+            add_to_temp_array = { temp_nn_dropout_mask = mask }
+
+            set_temp_variable = { arg_a = acc }
+            set_temp_variable = { arg_b = mask }
+            ieeeMul = yes
+            set_temp_variable = { acc = out_a }
+
+            set_temp_variable = { arg_a = acc }
+            set_temp_variable = { arg_b = global.nn_dropout_scale }
+            ieeeMul = yes
+            set_temp_variable = { acc = out_a }
+        }
+        # Store hidden activation for reuse in backprop.
+        add_to_temp_array = { temp_nn_hidden = acc }
+    }
+}
+
+## Usage:
+##  - Inputs: nn_sample_index, global.nn_train_sparse_idx, global.nn_train_sparse_val, global.nn_train_sparse_off
+##  - Outputs: temp_nn_hidden
+## Sparse hidden layer forward pass for one sample.
+mnist_nn_forward_hidden_sparse = {
+    clear_temp_array = temp_nn_hidden
+    resize_temp_array = { temp_nn_hidden = global.nn_hidden_size }
+
+    set_temp_variable = { off_idx = nn_sample_index }
+    set_temp_variable = { nnz_start = global.nn_train_sparse_off^off_idx }
+    add_to_temp_variable = { off_idx = 1 }
+    set_temp_variable = { nnz_end = global.nn_train_sparse_off^off_idx }
+    if = {
+        limit = { check_variable = { nnz_start < nnz_end } }
+        set_temp_variable = { nnz_last = nnz_end }
+        subtract_from_temp_variable = { nnz_last = 1 }
+        for_loop_effect = {
+            start = nnz_start
+            end = nnz_last
+            compare = less_than_or_equals
+            value = nnz_idx
+
+            set_temp_variable = { i = global.nn_train_sparse_idx^nnz_idx }
+            set_temp_variable = { x = global.nn_train_sparse_val^nnz_idx }
+            set_temp_variable = { w_idx = global.nn_w1_row_base^i }
+
+            for_loop_effect = {
+                start = 0
+                end = global.nn_hidden_size
+                compare = less_than
+                value = h
+
+                set_temp_variable = { acc = temp_nn_hidden^h }
+                set_temp_variable = { w = global.nn_w1^w_idx }
+
+                # acc += x * w
+                set_temp_variable = { arg_a = x }
+                set_temp_variable = { arg_b = w }
+                ieeeMul = yes
+                set_temp_variable = { arg_a = acc }
+                set_temp_variable = { arg_b = out_a }
+                ieeeAdd = yes
+                set_temp_variable = { temp_nn_hidden^h = out_a }
+
+                add_to_temp_variable = { w_idx = 1 }
+            }
+        }
+    }
+
+    for_loop_effect = {
+        start = 0
+        end = global.nn_hidden_size
+        compare = less_than
+        value = h
+
+        set_temp_variable = { acc = temp_nn_hidden^h }
+
+        # ReLU
+        set_temp_variable = { arg_a = acc }
+        set_temp_variable = { arg_b = global.nn_f0 }
+        if = {
+            limit = { compareLess = yes }
+            set_temp_variable = { acc = global.nn_f0 }
+        }
+        # NaN guard for debugging.
+        set_temp_variable = { arg_a = acc }
+        if = {
+            limit = { ieee_isnan = yes }
+            log = "MNIST NN NaN hidden h [?h] sample [?nn_sample_index]"
+        }
+        if = {
+            limit = {
+                check_variable = { global.nn_dropout_enabled = 1 }
+                check_variable = { nn_apply_dropout = 1 }
+            }
+            # Dropout mask: keep with p=0.5, scale by 2.
+            set_temp_variable_to_random = rand
+            set_temp_variable = { mask = global.nn_f0 }
+            if = {
+                limit = { check_variable = { rand < global.nn_dropout_keep_pdx } }
+                set_temp_variable = { mask = global.nn_f1 }
+            }
+            add_to_temp_array = { temp_nn_dropout_mask = mask }
+
+            set_temp_variable = { arg_a = acc }
+            set_temp_variable = { arg_b = mask }
+            ieeeMul = yes
+            set_temp_variable = { acc = out_a }
+
+            set_temp_variable = { arg_a = acc }
+            set_temp_variable = { arg_b = global.nn_dropout_scale }
+            ieeeMul = yes
+            set_temp_variable = { acc = out_a }
+        }
+        set_temp_variable = { temp_nn_hidden^h = acc }
+    }
+}
+
+## Usage:
+##  - Inputs: nn_sample_index, global.nn_train_images, global.nn_w1, global.nn_w2
+##  - Outputs: temp_nn_hidden, temp_nn_output
+## Forward pass for one sample at nn_sample_index.
+## Outputs are written to temp_nn_hidden and temp_nn_output.
+## If global.nn_loss_type = 1, temp_nn_output is softmax-normalized.
+mnist_nn_forward = {
+    clear_temp_array = temp_nn_hidden
+    clear_temp_array = temp_nn_output
+    clear_temp_array = temp_nn_dropout_mask
+
+    if = {
+        limit = {
+            check_variable = { global.nn_use_sparse_inputs = 1 }
+            check_variable = { global.nn_sparse_ready = 1 }
+        }
+        mnist_nn_forward_hidden_sparse = yes
+    }
+    else = {
+        mnist_nn_forward_hidden_dense = yes
+    }
+
+    # Output layer
+    clear_temp_array = temp_nn_output
+    for_loop_effect = {
+        start = 0
+        end = global.nn_output_size
+        compare = less_than
+        value = k
+
+        add_to_temp_array = { temp_nn_output = global.nn_f0 }
+    }
+
+    set_temp_variable = { use_dropout_mask = 0 }
+    if = {
+        limit = {
+            check_variable = { global.nn_dropout_enabled = 1 }
+            check_variable = { nn_apply_dropout = 1 }
+        }
+        set_temp_variable = { use_dropout_mask = 1 }
+    }
+
+    for_loop_effect = {
+        start = 0
+        end = global.nn_hidden_size
+        compare = less_than
+        value = h
+
+        set_temp_variable = { do_work = 1 }
+        if = {
+            limit = { check_variable = { use_dropout_mask = 1 } }
+            set_temp_variable = { mask = temp_nn_dropout_mask^h }
+            if = {
+                limit = { check_variable = { mask = global.nn_f0 } }
+                set_temp_variable = { do_work = 0 }
+            }
+        }
+        if = {
+            limit = { check_variable = { do_work = 1 } }
+            set_temp_variable = { hidden = temp_nn_hidden^h }
+            set_temp_variable = { w_idx = global.nn_w2_row_base^h }
+            for_loop_effect = {
+                start = 0
+                end = global.nn_output_size
+                compare = less_than
+                value = k
+
+                set_temp_variable = { acc = temp_nn_output^k }
+                set_temp_variable = { w = global.nn_w2^w_idx }
+
+                # acc += hidden * w
+                set_temp_variable = { arg_a = hidden }
+                set_temp_variable = { arg_b = w }
+                ieeeMul = yes
+                set_temp_variable = { arg_a = acc }
+                set_temp_variable = { arg_b = out_a }
+                ieeeAdd = yes
+                set_temp_variable = { temp_nn_output^k = out_a }
+
+                add_to_temp_variable = { w_idx = 1 }
+            }
+        }
+    }
+    # NaN guard for debugging.
+    for_loop_effect = {
+        start = 0
+        end = global.nn_output_size
+        compare = less_than
+        value = k
+
+        set_temp_variable = { arg_a = temp_nn_output^k }
+        if = {
+            limit = { ieee_isnan = yes }
+            log = "MNIST NN NaN output k [?k] sample [?nn_sample_index]"
+        }
+    }
+
+    # Softmax output for cross-entropy loss.
+    if = {
+        limit = { check_variable = { global.nn_loss_type = 1 } }
+        mnist_nn_apply_softmax = yes
+    }
+}
+
+## Usage:
+##  - Inputs: temp_nn_output, global.nn_output_size
+##  - Outputs: temp_nn_output (softmax probs), temp_nn_softmax
+## Applies numerically-stable softmax to temp_nn_output in-place.
+mnist_nn_apply_softmax = {
+    clear_temp_array = temp_nn_softmax
+
+    # Find max logit for numerical stability.
+    set_temp_variable = { max_logit = temp_nn_output^0 }
+    for_loop_effect = {
+        start = 1
+        end = global.nn_output_size
+        compare = less_than
+        value = k
+
+        set_temp_variable = { arg_a = temp_nn_output^k }
+        set_temp_variable = { arg_b = max_logit }
+        if = {
+            limit = { compareGreater = yes }
+            set_temp_variable = { max_logit = temp_nn_output^k }
+        }
+    }
+
+    # exp(logit - max) and sum.
+    set_temp_variable = { sum_exp = global.nn_f0 }
+    for_loop_effect = {
+        start = 0
+        end = global.nn_output_size
+        compare = less_than
+        value = k
+
+        set_temp_variable = { arg_a = temp_nn_output^k }
+        set_temp_variable = { arg_b = max_logit }
+        ieeeSub = yes
+        set_temp_variable = { arg_a = out_a }
+        ieeeExp = yes
+        set_temp_variable = { exp_val = out_a }
+        add_to_temp_array = { temp_nn_softmax = exp_val }
+
+        set_temp_variable = { arg_a = sum_exp }
+        set_temp_variable = { arg_b = exp_val }
+        ieeeAdd = yes
+        set_temp_variable = { sum_exp = out_a }
+    }
+
+    # Normalize.
+    for_loop_effect = {
+        start = 0
+        end = global.nn_output_size
+        compare = less_than
+        value = k
+
+        set_temp_variable = { exp_val = temp_nn_softmax^k }
+        set_temp_variable = { arg_a = exp_val }
+        set_temp_variable = { arg_b = sum_exp }
+        ieeeDiv = yes
+        set_temp_variable = { temp_nn_output^k = out_a }
+    }
+}
+
+## Usage:
+##  - Inputs: nn_sample_index, temp_nn_hidden, temp_nn_output, global.nn_train_labels, global.nn_w2
+##  - Outputs: temp_nn_delta_out, temp_nn_delta_hidden, updates global.nn_epoch_loss
+## Backprop for one sample: compute output deltas, hidden deltas, and loss.
+mnist_nn_compute_deltas = {
+    clear_temp_array = temp_nn_delta_out
+    clear_temp_array = temp_nn_delta_hidden
+
+    # Output deltas: (label - output), plus loss accumulation.
+    set_temp_variable = { temp_sample_loss = global.nn_f0 }
+    set_temp_variable = { label_idx = nn_sample_index }
+    multiply_temp_variable = { label_idx = global.nn_output_size }
+    for_loop_effect = {
+        start = 0
+        end = global.nn_output_size
+        compare = less_than
+        value = k
+
+        set_temp_variable = { label = global.nn_train_labels^label_idx }
+        set_temp_variable = { output = temp_nn_output^k }
+
+        # delta_out = label - output
+        set_temp_variable = { arg_a = label }
+        set_temp_variable = { arg_b = output }
+        ieeeSub = yes
+        set_temp_variable = { delta_out = out_a }
+        add_to_temp_array = { temp_nn_delta_out = delta_out }
+
+        if = {
+            limit = { check_variable = { global.nn_loss_type = 1 } }
+            # Cross-entropy: -log(output) for the true class.
+            set_temp_variable = { arg_a = label }
+            set_temp_variable = { arg_b = global.nn_f0 }
+            if = {
+                limit = { compareGreater = yes }
+                set_temp_variable = { output_clamped = output }
+                set_temp_variable = { arg_a = output_clamped }
+                set_temp_variable = { arg_b = global.nn_eps }
+                if = {
+                    limit = { compareLess = yes }
+                    set_temp_variable = { output_clamped = global.nn_eps }
+                }
+                set_temp_variable = { arg_a = output_clamped }
+                ieeeLn = yes
+                set_temp_variable = { arg_a = out_a }
+                set_temp_variable = { arg_b = global.nn_fneg1 }
+                ieeeMul = yes
+                set_temp_variable = { arg_a = temp_sample_loss }
+                set_temp_variable = { arg_b = out_a }
+                ieeeAdd = yes
+                set_temp_variable = { temp_sample_loss = out_a }
+            }
+        }
+        else = {
+            # MSE: loss += delta_out^2
+            set_temp_variable = { arg_a = delta_out }
+            set_temp_variable = { arg_b = delta_out }
+            ieeeMul = yes
+            set_temp_variable = { arg_a = temp_sample_loss }
+            set_temp_variable = { arg_b = out_a }
+            ieeeAdd = yes
+            set_temp_variable = { temp_sample_loss = out_a }
+        }
+        add_to_temp_variable = { label_idx = 1 }
+    }
+
+    # Hidden deltas: sum_k(w2[h,k] * delta_out[k]) * ReLU'(hidden[h])
+    set_temp_variable = { use_dropout_mask = 0 }
+    if = {
+        limit = {
+            check_variable = { global.nn_dropout_enabled = 1 }
+            check_variable = { nn_apply_dropout = 1 }
+        }
+        set_temp_variable = { use_dropout_mask = 1 }
+    }
+    set_temp_variable = { w2_row_base = 0 }
+    for_loop_effect = {
+        start = 0
+        end = global.nn_hidden_size
+        compare = less_than
+        value = h
+
+        set_temp_variable = { skip_h = 0 }
+        if = {
+            limit = { check_variable = { use_dropout_mask = 1 } }
+            set_temp_variable = { mask = temp_nn_dropout_mask^h }
+            if = {
+                limit = { check_variable = { mask = global.nn_f0 } }
+                set_temp_variable = { skip_h = 1 }
+            }
+        }
+        if = {
+            limit = { check_variable = { skip_h = 1 } }
+            add_to_temp_array = { temp_nn_delta_hidden = global.nn_f0 }
+        }
+        else = {
+            set_temp_variable = { acc = global.nn_f0 }
+            set_temp_variable = { w_idx = w2_row_base }
+            for_loop_effect = {
+                start = 0
+                end = global.nn_output_size
+                compare = less_than
+                value = k
+
+                set_temp_variable = { w = global.nn_w2^w_idx }
+                set_temp_variable = { delta_out = temp_nn_delta_out^k }
+
+                # acc += w * delta_out
+                set_temp_variable = { arg_a = w }
+                set_temp_variable = { arg_b = delta_out }
+                ieeeMul = yes
+                if = {
+                    limit = {
+                        check_variable = { nn_sample_index = 0 }
+                        check_variable = { h = 0 }
+                    }
+                    set_temp_variable = { arg_a = out_a }
+                    if = { limit = { ieee_isnan = yes } log = "MNIST NN debug mul NaN k [?k] out [?out_a]" }
+                }
+                set_temp_variable = { arg_a = acc }
+                set_temp_variable = { arg_b = out_a }
+                ieeeAdd = yes
+                if = {
+                    limit = {
+                        check_variable = { nn_sample_index = 0 }
+                        check_variable = { h = 0 }
+                    }
+                    set_temp_variable = { arg_a = out_a }
+                    if = { limit = { ieee_isnan = yes } log = "MNIST NN debug add NaN k [?k] out [?out_a]" }
+                }
+                set_temp_variable = { acc = out_a }
+                add_to_temp_variable = { w_idx = 1 }
+            }
+
+            # ReLU derivative
+            set_temp_variable = { arg_a = temp_nn_hidden^h }
+            set_temp_variable = { arg_b = global.nn_f0 }
+            if = {
+                limit = {
+                    OR = {
+                        compareLess = yes
+                        check_variable = { arg_a = global.nn_f0 }
+                    }
+                }
+                set_temp_variable = { acc = global.nn_f0 }
+            }
+            if = {
+                limit = {
+                    check_variable = { global.nn_dropout_enabled = 1 }
+                    check_variable = { nn_apply_dropout = 1 }
+                }
+                set_temp_variable = { mask = temp_nn_dropout_mask^h }
+                set_temp_variable = { arg_a = acc }
+                set_temp_variable = { arg_b = mask }
+                ieeeMul = yes
+                set_temp_variable = { arg_a = out_a }
+                set_temp_variable = { arg_b = global.nn_dropout_scale }
+                ieeeMul = yes
+                set_temp_variable = { acc = out_a }
+            }
+            # Store hidden delta for weight updates.
+            add_to_temp_array = { temp_nn_delta_hidden = acc }
+        }
+        add_to_temp_variable = { w2_row_base = global.nn_output_size }
+    }
+
+    # Accumulate epoch loss.
+    set_temp_variable = { arg_a = global.nn_epoch_loss }
+    set_temp_variable = { arg_b = temp_sample_loss }
+    ieeeAdd = yes
+    set_variable = { global.nn_epoch_loss = out_a }
+}
+
+## Usage:
+##  - Inputs: temp_nn_hidden, temp_nn_delta_out, global.nn_w2, global.nn_lr
+##  - Outputs: updates global.nn_w2
+## Weight update for W2 (hidden -> output).
+mnist_nn_update_w2 = {
+    set_temp_variable = { use_dropout_mask = 0 }
+    if = {
+        limit = {
+            check_variable = { global.nn_dropout_enabled = 1 }
+            check_variable = { nn_apply_dropout = 1 }
+        }
+        set_temp_variable = { use_dropout_mask = 1 }
+    }
+    set_temp_variable = { w2_row_base = 0 }
+    for_loop_effect = {
+        start = 0
+        end = global.nn_hidden_size
+        compare = less_than
+        value = h
+
+        set_temp_variable = { skip_h = 0 }
+        if = {
+            limit = { check_variable = { use_dropout_mask = 1 } }
+            set_temp_variable = { mask = temp_nn_dropout_mask^h }
+            if = {
+                limit = { check_variable = { mask = global.nn_f0 } }
+                set_temp_variable = { skip_h = 1 }
+            }
+        }
+        if = {
+            limit = { check_variable = { skip_h = 0 } }
+            set_temp_variable = { hidden = temp_nn_hidden^h }
+            set_temp_variable = { w_idx = w2_row_base }
+            for_loop_effect = {
+                start = 0
+                end = global.nn_output_size
+                compare = less_than
+                value = k
+
+                # grad = hidden * delta_out * lr
+                set_temp_variable = { delta_out = temp_nn_delta_out^k }
+                set_temp_variable = { arg_a = hidden }
+                set_temp_variable = { arg_b = delta_out }
+                ieeeMul = yes
+                set_temp_variable = { arg_a = out_a }
+                set_temp_variable = { arg_b = global.nn_lr }
+                ieeeMul = yes
+
+                set_temp_variable = { w = global.nn_w2^w_idx }
+
+                # w += grad
+                set_temp_variable = { arg_a = w }
+                set_temp_variable = { arg_b = out_a }
+                ieeeAdd = yes
+                set_variable = { global.nn_w2^w_idx = out_a }
+                add_to_temp_variable = { w_idx = 1 }
+            }
+        }
+        add_to_temp_variable = { w2_row_base = global.nn_output_size }
+    }
+}
+
+## Usage:
+##  - Inputs: nn_sample_index, global.nn_train_images, temp_nn_delta_hidden, global.nn_w1, global.nn_lr
+##  - Outputs: updates global.nn_w1
+## Weight update for W1 (input -> hidden), dense path.
+mnist_nn_update_w1_dense = {
+    set_temp_variable = { sample_base = nn_sample_index }
+    multiply_temp_variable = { sample_base = global.nn_input_size }
+    set_temp_variable = { img_idx = sample_base }
+    set_temp_variable = { w1_row_base = 0 }
+    for_loop_effect = {
+        start = 0
+        end = global.nn_input_size
+        compare = less_than
+        value = i
+
+        set_temp_variable = { x = global.nn_train_images^img_idx }
+        set_temp_variable = { w_idx = w1_row_base }
+        for_loop_effect = {
+            start = 0
+            end = global.nn_hidden_size
+            compare = less_than
+            value = h
+
+            # grad = x * delta_hidden * lr
+            set_temp_variable = { delta_hidden = temp_nn_delta_hidden^h }
+            set_temp_variable = { arg_a = x }
+            set_temp_variable = { arg_b = delta_hidden }
+            ieeeMul = yes
+            set_temp_variable = { arg_a = out_a }
+            set_temp_variable = { arg_b = global.nn_lr }
+            ieeeMul = yes
+
+            set_temp_variable = { w = global.nn_w1^w_idx }
+
+            # w += grad
+            set_temp_variable = { arg_a = w }
+            set_temp_variable = { arg_b = out_a }
+            ieeeAdd = yes
+            set_variable = { global.nn_w1^w_idx = out_a }
+
+            add_to_temp_variable = { w_idx = 1 }
+        }
+        add_to_temp_variable = { img_idx = 1 }
+        add_to_temp_variable = { w1_row_base = global.nn_hidden_size }
+    }
+}
+
+## Usage:
+##  - Inputs: nn_sample_index, global.nn_train_sparse_idx, global.nn_train_sparse_val, global.nn_train_sparse_off,
+##    temp_nn_delta_hidden, global.nn_w1, global.nn_lr
+##  - Outputs: updates global.nn_w1
+## Weight update for W1 (input -> hidden), sparse path.
+mnist_nn_update_w1_sparse = {
+    set_temp_variable = { off_idx = nn_sample_index }
+    set_temp_variable = { nnz_start = global.nn_train_sparse_off^off_idx }
+    add_to_temp_variable = { off_idx = 1 }
+    set_temp_variable = { nnz_end = global.nn_train_sparse_off^off_idx }
+    if = {
+        limit = { check_variable = { nnz_start < nnz_end } }
+        set_temp_variable = { nnz_last = nnz_end }
+        subtract_from_temp_variable = { nnz_last = 1 }
+        for_loop_effect = {
+            start = nnz_start
+            end = nnz_last
+            compare = less_than_or_equals
+            value = nnz_idx
+
+            set_temp_variable = { i = global.nn_train_sparse_idx^nnz_idx }
+            set_temp_variable = { x = global.nn_train_sparse_val^nnz_idx }
+            set_temp_variable = { w_idx = global.nn_w1_row_base^i }
+            for_loop_effect = {
+                start = 0
+                end = global.nn_hidden_size
+                compare = less_than
+                value = h
+
+                # grad = x * delta_hidden * lr
+                set_temp_variable = { delta_hidden = temp_nn_delta_hidden^h }
+                set_temp_variable = { arg_a = x }
+                set_temp_variable = { arg_b = delta_hidden }
+                ieeeMul = yes
+                set_temp_variable = { arg_a = out_a }
+                set_temp_variable = { arg_b = global.nn_lr }
+                ieeeMul = yes
+
+                set_temp_variable = { w = global.nn_w1^w_idx }
+
+                # w += grad
+                set_temp_variable = { arg_a = w }
+                set_temp_variable = { arg_b = out_a }
+                ieeeAdd = yes
+                set_variable = { global.nn_w1^w_idx = out_a }
+
+                add_to_temp_variable = { w_idx = 1 }
+            }
+        }
+    }
+}
+
+## Usage:
+##  - Inputs: nn_sample_index, global.nn_train_images, temp_nn_delta_hidden, global.nn_w1, global.nn_lr
+##  - Outputs: updates global.nn_w1
+## Weight update for W1 (input -> hidden).
+mnist_nn_update_w1 = {
+    if = {
+        limit = {
+            check_variable = { global.nn_use_sparse_inputs = 1 }
+            check_variable = { global.nn_sparse_ready = 1 }
+        }
+        mnist_nn_update_w1_sparse = yes
+    }
+    else = {
+        mnist_nn_update_w1_dense = yes
+    }
+}
+
+## Usage:
+##  - Inputs: nn_sample_index plus all forward/backprop inputs
+##  - Outputs: updates weights, accumulates global.nn_epoch_loss
+## Full training step for one sample.
+mnist_nn_train_sample = {
+    log = "MNIST NN sample [?nn_sample_index] forward"
+    set_temp_variable = { nn_apply_dropout = 1 }
+    mnist_nn_forward = yes
+    log = "MNIST NN sample [?nn_sample_index] backward"
+    mnist_nn_compute_deltas = yes
+    log = "MNIST NN sample [?nn_sample_index] update_w2"
+    mnist_nn_update_w2 = yes
+    log = "MNIST NN sample [?nn_sample_index] update_w1"
+    mnist_nn_update_w1 = yes
+}
+
+## Usage:
+##  - Inputs: global.nn_train_samples, global.nn_train_images, global.nn_train_labels
+##  - Outputs: updates weights, sets global.nn_epoch_loss
+## Train all samples once; uses chunking to avoid 1000-iteration caps.
+mnist_nn_train_epoch = {
+    set_variable = { global.nn_epoch_loss = global.nn_f0 }
+    if = {
+        limit = { check_variable = { global.nn_train_samples > 0 } }
+        set_temp_variable = { sample_start = 0 }
+        while_loop_effect = {
+            limit = { check_variable = { sample_start < global.nn_train_samples } }
+
+            # sample_end = min(sample_start + 999, last_index)
+            set_temp_variable = { sample_end = sample_start }
+            add_to_temp_variable = { sample_end = 999 }
+            set_temp_variable = { train_last = global.nn_train_samples }
+            subtract_from_temp_variable = { train_last = 1 }
+            if = {
+                limit = { check_variable = { sample_end > train_last } }
+                set_temp_variable = { sample_end = train_last }
+            }
+            log = "MNIST NN epoch [?nn_epoch_index] chunk start [?sample_start]-[?sample_end]"
+
+            for_loop_effect = {
+                start = sample_start
+                end = sample_end
+                compare = less_than_or_equals
+                value = nn_sample_index
+
+                mnist_nn_train_sample = yes
+            }
+
+            # Jump by 1000 to respect loop caps.
+            log = "MNIST NN epoch [?nn_epoch_index] chunk done [?sample_start]-[?sample_end]"
+            add_to_temp_variable = { sample_start = 1000 }
+        }
+    }
+}
+
+## Usage:
+##  - Inputs: global.nn_epochs, global.nn_train_samples (or uses mnist_nn_load_dummy_data)
+##  - Outputs: trained weights, per-epoch logs via mnist_nn_log_epoch
+## Top-level training loop; epochs are chunked to avoid 1000-iteration caps.
+mnist_nn_train = {
+    mnist_nn_setup = yes
+    if = {
+        limit = { check_variable = { global.nn_train_samples = 0 } }
+        mnist_nn_load_data_all = yes
+    }
+    if = {
+        limit = {
+            check_variable = { global.nn_use_sparse_inputs = 1 }
+            NOT = { check_variable = { global.nn_sparse_ready = 1 } }
+        }
+        mnist_nn_build_sparse_inputs = yes
+    }
+
+    log = "MNIST NN starting training global.nn_epochs=[?global.nn_epochs] global.nn_train_samples=[?global.nn_train_samples] global.nn_hidden_size=[?global.nn_hidden_size]"
+
+    set_temp_variable = { epoch_start = 0 }
+    while_loop_effect = {
+        limit = { check_variable = { epoch_start < global.nn_epochs } }
+
+        # epoch_end = min(epoch_start + 999, last_epoch)
+        set_temp_variable = { epoch_end = epoch_start }
+        add_to_temp_variable = { epoch_end = 999 }
+        set_temp_variable = { epoch_last = global.nn_epochs }
+        subtract_from_temp_variable = { epoch_last = 1 }
+        if = {
+            limit = { check_variable = { epoch_end > epoch_last } }
+            set_temp_variable = { epoch_end = epoch_last }
+        }
+
+        for_loop_effect = {
+            start = epoch_start
+            end = epoch_end
+            compare = less_than_or_equals
+            value = nn_epoch_index
+
+            mnist_nn_train_epoch = yes
+            mnist_nn_log_epoch = yes
+        }
+
+        # Jump by 1000 to respect loop caps.
+        add_to_temp_variable = { epoch_start = 1000 }
+    }
+}
+
+## Usage:
+##  - Inputs: global.nn_epoch_loss, nn_epoch_index
+##  - Outputs: log line in game.log
+## Log epoch loss in pdxvar format for readability.
+mnist_nn_log_epoch = {
+    log = "MNIST NN epoch [?nn_epoch_index] loss_raw [?global.nn_epoch_loss]"
+    set_temp_variable = { arg_a = global.nn_epoch_loss }
+    float_to_pdxvar = yes
+    log = "MNIST NN epoch [?nn_epoch_index] loss ~ [?out_a] flags ovf [?overflow_flag] inf [?inf_flag] nan [?nan_flag]"
+}
+
+## Usage:
+##  - Inputs: nn_sample_index, global.nn_train_images, global.nn_w1, global.nn_w2
+##  - Outputs: global.nn_infer_pred (argmax index), nn_infer_is_correct
+## Run forward pass for nn_sample_index and pick argmax.
+## Outputs prediction index to global.nn_infer_pred.
+mnist_nn_infer = {
+    mnist_nn_forward = yes
+    set_temp_variable = { best_val = temp_nn_output^0 }
+    set_temp_variable = { best_idx = 0 }
+    for_loop_effect = {
+        start = 1
+        end = global.nn_output_size
+        compare = less_than
+        value = k
+
+        set_temp_variable = { arg_a = temp_nn_output^k }
+        set_temp_variable = { arg_b = best_val }
+        if = {
+            limit = { compareGreater = yes }
+            set_temp_variable = { best_val = temp_nn_output^k }
+            set_temp_variable = { best_idx = k }
+        }
+    }
+
+    set_temp_variable = { label_idx = nn_sample_index }
+    multiply_temp_variable = { label_idx = global.nn_output_size }
+    set_temp_variable = { real_idx = 0 }
+    for_loop_effect = {
+        start = 0
+        end = global.nn_output_size
+        compare = less_than
+        value = k
+
+        set_temp_variable = { label_val = global.nn_train_labels^label_idx }
+        set_temp_variable = { arg_a = label_val }
+        set_temp_variable = { arg_b = global.nn_f0 }
+        if = {
+            limit = { compareGreater = yes }
+            set_temp_variable = { real_idx = k }
+        }
+        add_to_temp_variable = { label_idx = 1 }
+    }
+
+    set_variable = { global.nn_infer_pred = best_idx }
+    set_temp_variable = { nn_infer_is_correct = 0 }
+    if = {
+        limit = { check_variable = { best_idx = real_idx } }
+        set_temp_variable = { nn_infer_is_correct = 1 }
+    }
+    log = "MNIST NN infer sample [?nn_sample_index] pred [?best_idx] label [?real_idx]"
+    # Convert outputs to pdxvars for readable logging.
+    set_temp_variable = { arg_a = temp_nn_output^0 }
+    float_to_pdxvar = yes
+    set_temp_variable = { prob0 = out_a }
+    set_temp_variable = { arg_a = temp_nn_output^1 }
+    float_to_pdxvar = yes
+    set_temp_variable = { prob1 = out_a }
+    set_temp_variable = { arg_a = temp_nn_output^2 }
+    float_to_pdxvar = yes
+    set_temp_variable = { prob2 = out_a }
+    set_temp_variable = { arg_a = temp_nn_output^3 }
+    float_to_pdxvar = yes
+    set_temp_variable = { prob3 = out_a }
+    set_temp_variable = { arg_a = temp_nn_output^4 }
+    float_to_pdxvar = yes
+    set_temp_variable = { prob4 = out_a }
+    set_temp_variable = { arg_a = temp_nn_output^5 }
+    float_to_pdxvar = yes
+    set_temp_variable = { prob5 = out_a }
+    set_temp_variable = { arg_a = temp_nn_output^6 }
+    float_to_pdxvar = yes
+    set_temp_variable = { prob6 = out_a }
+    set_temp_variable = { arg_a = temp_nn_output^7 }
+    float_to_pdxvar = yes
+    set_temp_variable = { prob7 = out_a }
+    set_temp_variable = { arg_a = temp_nn_output^8 }
+    float_to_pdxvar = yes
+    set_temp_variable = { prob8 = out_a }
+    set_temp_variable = { arg_a = temp_nn_output^9 }
+    float_to_pdxvar = yes
+    set_temp_variable = { prob9 = out_a }
+    log = "MNIST NN infer probs 0=[?prob0] 1=[?prob1] 2=[?prob2] 3=[?prob3] 4=[?prob4] 5=[?prob5] 6=[?prob6] 7=[?prob7] 8=[?prob8] 9=[?prob9]"
+}
+
+## Usage:
+##  - Inputs: global.nn_train_samples, global.nn_train_images, global.nn_train_labels
+##  - Outputs: logs inference for each sample via mnist_nn_infer, logs accuracy summary
+## Run inference over the entire training set with chunked loops.
+mnist_nn_infer_all_train = {
+    if = {
+        limit = { check_variable = { global.nn_train_samples > 0 } }
+        set_temp_variable = { nn_infer_total = 0 }
+        set_temp_variable = { nn_infer_correct = 0 }
+        set_temp_variable = { sample_start = 0 }
+        while_loop_effect = {
+            limit = { check_variable = { sample_start < global.nn_train_samples } }
+
+            # sample_end = min(sample_start + 999, last_index)
+            set_temp_variable = { sample_end = sample_start }
+            add_to_temp_variable = { sample_end = 999 }
+            set_temp_variable = { train_last = global.nn_train_samples }
+            subtract_from_temp_variable = { train_last = 1 }
+            if = {
+                limit = { check_variable = { sample_end > train_last } }
+                set_temp_variable = { sample_end = train_last }
+            }
+            log = "MNIST NN infer chunk start [?sample_start]-[?sample_end]"
+
+            for_loop_effect = {
+                start = sample_start
+                end = sample_end
+                compare = less_than_or_equals
+                value = nn_sample_index
+
+                mnist_nn_infer = yes
+                add_to_temp_variable = { nn_infer_total = 1 }
+                if = {
+                    limit = { check_variable = { nn_infer_is_correct = 1 } }
+                    add_to_temp_variable = { nn_infer_correct = 1 }
+                }
+            }
+
+            # Jump by 1000 to respect loop caps.
+            add_to_temp_variable = { sample_start = 1000 }
+            log = "MNIST NN infer chunk done"
+        }
+        if = {
+            limit = { check_variable = { nn_infer_total > 0 } }
+            set_temp_variable = { arg_a = nn_infer_correct }
+            pdxvar_to_float = yes
+            set_temp_variable = { infer_correct_f = out_a }
+            set_temp_variable = { arg_a = nn_infer_total }
+            pdxvar_to_float = yes
+            set_temp_variable = { infer_total_f = out_a }
+            set_temp_variable = { arg_a = infer_correct_f }
+            set_temp_variable = { arg_b = infer_total_f }
+            ieeeDiv = yes
+            set_variable = { global.nn_infer_accuracy = out_a }
+            set_temp_variable = { arg_a = global.nn_infer_accuracy }
+            float_to_pdxvar = yes
+            log = "MNIST NN infer summary total [?nn_infer_total] correct [?nn_infer_correct] accuracy [?out_a]"
+        }
+    }
+}
+
+## Usage:
+##  - Inputs: global.nn_input_size, global.nn_hidden_size, global.nn_output_size, global.nn_w1, global.nn_w2
+##  - Outputs: log lines for each weight in W1 and W2
+## Log all trained weights in a python-friendly key=value format.
+mnist_nn_dump_weights = {
+    # Dump W1
+    set_temp_variable = { w1_size = global.nn_input_size }
+    multiply_temp_variable = { w1_size = global.nn_hidden_size }
+    set_temp_variable = { w1_start = 0 }
+    while_loop_effect = {
+        limit = { check_variable = { w1_start < w1_size } }
+
+        set_temp_variable = { w1_end = w1_start }
+        add_to_temp_variable = { w1_end = 999 }
+        set_temp_variable = { w1_last = w1_size }
+        subtract_from_temp_variable = { w1_last = 1 }
+        if = {
+            limit = { check_variable = { w1_end > w1_last } }
+            set_temp_variable = { w1_end = w1_last }
+        }
+        log = "MNIST NN W1 chunk start idx=[?w1_start]-[?w1_end]"
+
+        for_loop_effect = {
+            start = w1_start
+            end = w1_end
+            compare = less_than_or_equals
+            value = w_idx
+
+            log = "MNIST NN W1 idx=[?w_idx] val=[?global.nn_w1^w_idx]"
+        }
+
+        add_to_temp_variable = { w1_start = 1000 }
+        log = "MNIST NN W1 chunk done"
+    }
+
+    # Dump W2
+    set_temp_variable = { w2_size = global.nn_hidden_size }
+    multiply_temp_variable = { w2_size = global.nn_output_size }
+    set_temp_variable = { w2_start = 0 }
+    while_loop_effect = {
+        limit = { check_variable = { w2_start < w2_size } }
+
+        set_temp_variable = { w2_end = w2_start }
+        add_to_temp_variable = { w2_end = 999 }
+        set_temp_variable = { w2_last = w2_size }
+        subtract_from_temp_variable = { w2_last = 1 }
+        if = {
+            limit = { check_variable = { w2_end > w2_last } }
+            set_temp_variable = { w2_end = w2_last }
+        }
+        log = "MNIST NN W2 chunk start idx=[?w2_start]-[?w2_end]"
+
+        for_loop_effect = {
+            start = w2_start
+            end = w2_end
+            compare = less_than_or_equals
+            value = w_idx
+
+            log = "MNIST NN W2 idx=[?w_idx] val=[?global.nn_w2^w_idx]"
+        }
+
+        add_to_temp_variable = { w2_start = 1000 }
+        log = "MNIST NN W2 chunk done"
+    }
+}
